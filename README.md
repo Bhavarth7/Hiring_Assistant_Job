@@ -50,10 +50,7 @@ The 100B Hiring Assistant is a sophisticated tool designed to streamline the hir
    pip install streamlit pandas numpy matplotlib seaborn flask
    ```
 
-3. **Navigate to the project directory:**
-   ```bash
-   cd M_project/F2
-   ```
+
 
 ### Running the Application
 
@@ -63,22 +60,17 @@ python app.py
 ```
 Then open your browser and navigate to `http://localhost:5000`
 
-#### Option 2: Jupyter Notebook Analysis
-```bash
-cd F22
-jupyter notebook 100B_Jobs.ipynb
-```
+
 
 ## 📁 Project Structure
 
 ```
-M_project/F2/
+
 ├── app.py                 # Main Flask application
 ├── index.html            # Web interface
 ├── styles.css            # Styling and UI components
-├── F22/                  # Analysis and data processing
-│   ├── 100B_Jobs.ipynb  # Jupyter notebook for data analysis
-│   └── form-submissions.json  # Sample candidate data
+├── 100B_Jobs.ipynb                 
+│   
 └── README.md             # This file
 ```
 
