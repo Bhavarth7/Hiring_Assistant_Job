@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>100B Hiring Assistant</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <div class="logo">💼</div>
+      <div class="title">
+        <h1>100B Hiring Assistant</h1>
+        <p>Score candidates, enforce diversity, and pick your top 5 — locally.</p>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- Upload -->
+    <section class="card">
+      <h2>1) Upload submissions JSON</h2>
+
+      <div id="dropzone" class="dropzone">
+        <div class="dz-inner">
+          <div class="dz-icon">⬆️</div>
+          <div class="dz-title">Drag & drop your JSON/JSONL here</div>
+          <div class="dz-sub">or choose a file below</div>
+        </div>
+      </div>
+
+      <div class="uploader line">
+        <input id="fileInput" type="file" accept=".json,.jsonl,.txt" />
+        <button id="uploadBtn">Upload</button>
+        <span class="hint">Supports JSON array or JSON Lines</span>
+      </div>
+      <div id="uploadStatus" class="status"></div>
+
+      <div id="summary" class="stats hidden">
+        <div class="stat"><div class="label">Total candidates</div><div class="value" id="totalCount">—</div></div>
+        <div class="stat"><div class="label">Avg score</div><div class="value" id="avgScore">—</div></div>
+        <div class="stat"><div class="label">Top role</div><div class="value" id="topRole">—</div></div>
+        <div class="stat"><div class="label">Top region</div><div class="value" id="topRegion">—</div></div>
+      </div>
+    </section>
+
+    <!-- Filters -->
+    <section class="card">
+      <h2>2) Filters</h2>
+
+      <div class="filters-advanced">
+        <div class="row">
+          <div class="filter">
+            <label for="scoreRange">Minimum score: <span id="scoreVal">0.00</span></label>
+            <input id="scoreRange" class="range" type="range" min="0" max="1" step="0.01" value="0" />
+          </div>
+
+          <div class="filter">
+            <label>Roles</label>
+            <div id="rolesBox" class="chips"></div>
+          </div>
+
+          <div class="filter">
+            <label>Regions</label>
+            <div id="regionsBox" class="chips"></div>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="filter">
+            <label>YoE range</label>
+            <div class="yoe">
+              <input id="yoeMin" type="number" min="0" max="60" step="1" placeholder="Min" />
+              <span>–</span>
+              <input id="yoeMax" type="number" min="0" max="60" step="1" placeholder="Max" />
+            </div>
+          </div>
+
+          <div class="filter">
+            <label for="searchBox">Search (skills, summary, companies, location)</label>
+            <input id="searchBox" type="text" placeholder="e.g. python, fintech, growth, berlin" />
+          </div>
+
+          <div class="filter toggles">
+            <label class="toggle"><input id="hasGithub" type="checkbox" /><span>Has GitHub</span></label>
+            <label class="toggle"><input id="hasPortfolio" type="checkbox" /><span>Has Portfolio</span></label>
+            <label class="toggle"><input id="hasResume" type="checkbox" /><span>Has Resume</span></label>
+            <label class="toggle"><input id="pedCompany" type="checkbox" /><span>Top company</span></label>
+            <label class="toggle"><input id="pedSchool" type="checkbox" /><span>Top school</span></label>
+            <label class="toggle"><input id="preferRegion" type="checkbox" checked /><span>Prefer region diversity</span></label>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="filter">
+            <label for="sortBy">Sort by</label>
+            <div class="inline">
+              <select id="sortBy">
+                <option value="final_score">Score</option>
+                <option value="years_experience">YoE</option>
+                <option value="name">Name</option>
+                <option value="region">Region</option>
+              </select>
+              <select id="sortDir">
+                <option value="desc">Desc</option>
+                <option value="asc">Asc</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="filter">
+            <label>View</label>
+            <div class="view-toggle">
+              <button id="viewTable" class="view-btn active">Table</button>
+              <button id="viewCards" class="view-btn">Cards</button>
+            </div>
+          </div>
+
+          <div class="filter">
+            <label>Page size</label>
+            <select id="pageSize">
+              <option>10</option>
+              <option selected>25</option>
+              <option>50</option>
+              <option>100</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button id="refreshBtn" class="secondary">Refresh list</button>
+          <button id="clearBtn" class="ghost">Clear filters</button>
+          <div class="spacer"></div>
+          <button id="savePreset" class="ghost">Save preset</button>
+          <button id="loadPreset" class="ghost">Load preset</button>
+          <button id="autoBtn">Auto-select Top 5</button>
+          <button id="exportBtn" class="ghost" disabled>Download Picks (CSV)</button>
+        </div>
+
+        <div id="filterSummary" class="status"></div>
+      </div>
+    </section>
+
+    <!-- Candidates -->
+    <section class="card">
+      <h2>Candidates</h2>
+      <div id="candidatesWrap">
+        <div id="candidatesTable" class="table-wrap">Upload data to see candidates.</div>
+        <div id="cardsGrid" class="cards hidden"></div>
+        <div id="pager" class="pager hidden">
+          <button id="prevPage" class="secondary">Prev</button>
+          <span id="pageInfo" class="muted">Page 1 / 1</span>
+          <button id="nextPage" class="secondary">Next</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Picks -->
+    <section class="card">
+      <h2>Selected 5 hires</h2>
+      <div id="picks" class="picks"></div>
+    </section>
+
+    <!-- Deep dive -->
+    <section class="card">
+      <h2>Deep dive</h2>
+      <div class="deep-dive">
+        <select id="deepSelect"></select>
+        <button id="deepLoadBtn" class="secondary">Load</button>
+      </div>
+      <div id="deepView" class="deep-view"></div>
+    </section>
+  </main>
+
+  <footer>
+    <small>Local app. No data leaves your machine.</small>
+  </footer>
+
+  <div id="toast" class="toast"></div>
+
+  <script>
+    let rolesConfig = [];
+    let regionOptions = [];
+    let candidatesCache = [];
+    let filteredCache = [];
+
+    const state = {
+      view: "table",
+      page: 1,
+      pageSize: 25
+    };
+
+    function toast(msg) {
+      const el = document.getElementById("toast");
+      el.textContent = msg;
+      el.classList.add("show");
+      setTimeout(() => el.classList.remove("show"), 1600);
+    }
+
+    function fmt(n) {
+      if (n === null || n === undefined || Number.isNaN(n)) return "—";
+      return typeof n === "number" ? n.toFixed(3) : String(n);
+    }
+
+    async function fetchConfig() {
+      const res = await fetch("/api/config");
+      const data = await res.json();
+      rolesConfig = data.roles || ["engineering","product","design","data","gtm","ops"];
+      // Role chips
+      const box = document.getElementById("rolesBox");
+      box.innerHTML = "";
+      rolesConfig.forEach(r => {
+        const chip = document.createElement("label");
+        chip.className = "chip active";
+        chip.dataset.value = r;
+        chip.innerHTML = `<input type="checkbox" checked /><span>${r}</span>`;
+        chip.addEventListener("click", (e) => {
+          if (e.target.tagName.toLowerCase() === "input") return;
+          const input = chip.querySelector("input");
+          input.checked = !input.checked;
+          chip.classList.toggle("active", input.checked);
+        });
+        box.appendChild(chip);
+      });
+    }
+
+    function setLoadingCandidates(loading) {
+      const wrap = document.getElementById("candidatesTable");
+      const grid = document.getElementById("cardsGrid");
+      if (loading) {
+        wrap.innerHTML = `<div class="skeleton">
+          <div class="line"></div><div class="line"></div><div class="line"></div>
+          <div class="line"></div><div class="line"></div><div class="line"></div>
+        </div>`;
+        grid.classList.add("hidden");
+      }
+    }
+
+    async function uploadFile(fileOverride = null) {
+      const file = fileOverride || document.getElementById("fileInput").files[0];
+      const status = document.getElementById("uploadStatus");
+      status.textContent = "";
+      if (!file) {
+        status.textContent = "Please choose a file.";
+        return;
+      }
+      const fd = new FormData();
+      fd.append("file", file);
+      setLoadingCandidates(true);
+      const res = await fetch("/api/upload", { method: "POST", body: fd });
+      const data = await res.json();
+      if (!res.ok) {
+        status.textContent = data.error || "Upload failed.";
+        return;
+      }
+      status.textContent = "Upload successful.";
+      toast("Uploaded ✅");
+      await refreshSummary();
+      await refreshCandidates();
+    }
+
+    async function refreshSummary() {
+      const res = await fetch("/api/summary");
+      const data = await res.json();
+      if (!res.ok) return;
+      document.getElementById("summary").classList.remove("hidden");
+      document.getElementById("totalCount").textContent = data.total || 0;
+      document.getElementById("avgScore").textContent = fmt(data.avg_score);
+      document.getElementById("topRole").textContent = data.top_role || "—";
+      document.getElementById("topRegion").textContent = data.top_region || "—";
+
+      // Build region chips
+      const regions = data.regions || {};
+      regionOptions = Object.keys(regions);
+      const box = document.getElementById("regionsBox");
+      box.innerHTML = "";
+      if (regionOptions.length === 0) {
+        const empty = document.createElement("span");
+        empty.className = "muted";
+        empty.textContent = "None detected yet";
+        box.appendChild(empty);
+        return;
+      }
+      regionOptions.forEach(r => {
+        const chip = document.createElement("label");
+        chip.className = "chip active";
+        chip.dataset.value = r;
+        chip.innerHTML = `<input type="checkbox" checked /><span>${r}</span>`;
+        chip.addEventListener("click", (e) => {
+          if (e.target.tagName.toLowerCase() === "input") return;
+          const input = chip.querySelector("input");
+          input.checked = !input.checked;
+          chip.classList.toggle("active", input.checked);
+        });
+        box.appendChild(chip);
+      });
+    }
+
+    function getFilters() {
+      const minScore = parseFloat(document.getElementById("scoreRange").value || "0");
+      const roles = Array.from(document.querySelectorAll("#rolesBox input[type=checkbox]"))
+        .filter(el => el.checked).map(el => el.parentElement.dataset.value);
+
+      const regions = Array.from(document.querySelectorAll("#regionsBox input[type=checkbox]"))
+        .filter(el => el.checked).map(el => el.parentElement.dataset.value);
+
+      const yoeMin = parseInt(document.getElementById("yoeMin").value || ""); // NaN allowed
+      const yoeMax = parseInt(document.getElementById("yoeMax").value || "");
+      const search = (document.getElementById("searchBox").value || "").trim().toLowerCase();
+
+      return {
+        minScore,
+        roles,
+        regions,
+        yoeMin: Number.isNaN(yoeMin) ? null : yoeMin,
+        yoeMax: Number.isNaN(yoeMax) ? null : yoeMax,
+        hasGithub: document.getElementById("hasGithub").checked,
+        hasPortfolio: document.getElementById("hasPortfolio").checked,
+        hasResume: document.getElementById("hasResume").checked,
+        pedCompany: document.getElementById("pedCompany").checked,
+        pedSchool: document.getElementById("pedSchool").checked,
+        preferRegions: document.getElementById("preferRegion").checked,
+        search,
+        sortBy: document.getElementById("sortBy").value,
+        sortDir: document.getElementById("sortDir").value,
+        pageSize: parseInt(document.getElementById("pageSize").value || "25")
+      };
+    }
+
+    function clearFilters() {
+      document.getElementById("scoreRange").value = 0;
+      document.getElementById("scoreVal").textContent = "0.00";
+      document.getElementById("yoeMin").value = "";
+      document.getElementById("yoeMax").value = "";
+      document.getElementById("searchBox").value = "";
+      ["hasGithub","hasPortfolio","hasResume","pedCompany","pedSchool","preferRegion"].forEach(id => {
+        document.getElementById(id).checked = (id === "preferRegion");
+      });
+      Array.from(document.querySelectorAll("#rolesBox .chip, #regionsBox .chip")).forEach(chip => {
+        const input = chip.querySelector("input");
+        input.checked = true;
+        chip.classList.add("active");
+      });
+      document.getElementById("sortBy").value = "final_score";
+      document.getElementById("sortDir").value = "desc";
+      document.getElementById("pageSize").value = "25";
+    }
+
+    function savePreset() {
+      const preset = getFilters();
+      localStorage.setItem("filters_preset", JSON.stringify(preset));
+      toast("Preset saved");
+    }
+
+    function loadPreset() {
+      const raw = localStorage.getItem("filters_preset");
+      if (!raw) return toast("No preset found");
+      const p = JSON.parse(raw);
+      document.getElementById("scoreRange").value = p.minScore || 0;
+      document.getElementById("scoreVal").textContent = parseFloat(p.minScore || 0).toFixed(2);
+      document.getElementById("yoeMin").value = p.yoeMin ?? "";
+      document.getElementById("yoeMax").value = p.yoeMax ?? "";
+      document.getElementById("searchBox").value = p.search || "";
+      ["hasGithub","hasPortfolio","hasResume","pedCompany","pedSchool","preferRegion"].forEach(id => {
+        document.getElementById(id).checked = !!p[id];
+      });
+      // Roles
+      const roleSet = new Set(p.roles || []);
+      Array.from(document.querySelectorAll("#rolesBox .chip")).forEach(chip => {
+        const input = chip.querySelector("input");
+        const on = roleSet.size === 0 || roleSet.has(chip.dataset.value);
+        input.checked = on;
+        chip.classList.toggle("active", on);
+      });
+      // Regions
+      const regSet = new Set(p.regions || []);
+      Array.from(document.querySelectorAll("#regionsBox .chip")).forEach(chip => {
+        const input = chip.querySelector("input");
+        const on = regSet.size === 0 || regSet.has(chip.dataset.value);
+        input.checked = on;
+        chip.classList.toggle("active", on);
+      });
+      document.getElementById("sortBy").value = p.sortBy || "final_score";
+      document.getElementById("sortDir").value = p.sortDir || "desc";
+      document.getElementById("pageSize").value = String(p.pageSize || 25);
+      toast("Preset loaded");
+    }
+
+    function applyAdvancedFilters(list, f) {
+      let out = list.slice();
+      // Regions
+      if ((f.regions || []).length) {
+        out = out.filter(r => !r.region || f.regions.includes(r.region));
+      }
+      // YoE
+      if (f.yoeMin !== null) {
+        out = out.filter(r => (r.years_experience ?? -1) >= f.yoeMin);
+      }
+      if (f.yoeMax !== null) {
+        out = out.filter(r => (r.years_experience ?? 10_000) <= f.yoeMax);
+      }
+      // Search
+      if (f.search) {
+        const s = f.search;
+        out = out.filter(r => {
+          return [r.skills_raw, r.location, r.region, r.name].some(x => (x || "").toLowerCase().includes(s));
+        });
+      }
+      // Toggles
+      if (f.hasGithub) out = out.filter(r => !!r.github);
+      if (f.hasPortfolio) out = out.filter(r => !!r.portfolio);
+      if (f.hasResume) out = out.filter(r => !!r.resume_link);
+      if (f.pedCompany) out = out.filter(r => /google|meta|facebook|amazon|apple|netflix|microsoft|openai|stripe|airbnb|uber|lyft|dropbox|salesforce|snowflake|nvidia|databricks|coinbase|palantir/i.test(r.companies_raw || ""));
+      if (f.pedSchool) out = out.filter(r => /stanford|mit|massachusetts institute of technology|berkeley|uc berkeley|harvard|caltech|cmu|carnegie mellon|waterloo|oxford|cambridge|eth zurich|ucla|uw|illinois|uiuc/i.test(r.education_raw || ""));
+      // Sort
+      const dir = f.sortDir === "asc" ? 1 : -1;
+      const key = f.sortBy || "final_score";
+      out.sort((a, b) => {
+        let va = a[key], vb = b[key];
+        if (key === "name" || key === "region") {
+          va = (va || "").toString().toLowerCase();
+          vb = (vb || "").toString().toLowerCase();
+          if (va < vb) return -1 * dir;
+          if (va > vb) return 1 * dir;
+          return 0;
+        }
+        va = Number.isFinite(va) ? va : -Infinity;
+        vb = Number.isFinite(vb) ? vb : -Infinity;
+        return (va - vb) * dir;
+      });
+      return out;
+    }
+
+    function renderTable(recs) {
+      const tableWrap = document.getElementById("candidatesTable");
+      if (recs.length === 0) {
+        tableWrap.textContent = "No candidates match current filters.";
+        return;
+      }
+      const headers = ["Name","Role","Score","YoE","Region","Location","Email","LinkedIn","GitHub","Portfolio","Resume","Skills"];
+      const keys = ["name","role_guess","final_score","years_experience","region","location","email","linkedin","github","portfolio","resume_link","skills_raw"];
+      const table = document.createElement("table");
+      table.className = "table";
+      const thead = document.createElement("thead");
+      const trh = document.createElement("tr");
+      headers.forEach(h => {
+        const th = document.createElement("th");
+        th.textContent = h;
+        trh.appendChild(th);
+      });
+      thead.appendChild(trh);
+      table.appendChild(thead);
+      const tbody = document.createElement("tbody");
+      recs.forEach(r => {
+        const tr = document.createElement("tr");
+        keys.forEach(k => {
+          const td = document.createElement("td");
+          let v = r[k];
+          if (k === "final_score") v = fmt(v);
+          if (k === "years_experience") v = (v === null || v === undefined) ? "—" : v;
+          if (["linkedin","github","portfolio","resume_link"].includes(k) && v) {
+            const a = document.createElement("a");
+            a.href = v; a.target = "_blank"; a.rel = "noopener";
+            a.textContent = k.replace("_link","").replace("_"," ");
+            td.appendChild(a);
+          } else {
+            td.textContent = (v && v.length > 160 && k === "skills_raw") ? v.slice(0,160)+"…" : (v || "—");
+          }
+          tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+      tableWrap.innerHTML = "";
+      tableWrap.appendChild(table);
+    }
+
+    function roleBadge(role) {
+      return `<span class="badge role-${(role||'').toLowerCase()}">${role || '—'}</span>`;
+    }
+
+    function renderCards(recs) {
+      const grid = document.getElementById("cardsGrid");
+      grid.innerHTML = "";
+      if (recs.length === 0) {
+        grid.textContent = "No candidates match current filters.";
+        return;
+      }
+      recs.forEach(p => {
+        const div = document.createElement("div");
+        div.className = "card-item";
+        div.innerHTML = `
+          <div class="ci-head">
+            <div>
+              <h3>${p.name}</h3>
+              <div class="meta">
+                ${roleBadge(p.role_guess)}
+                <span class="pill score">Score ${fmt(p.final_score)}</span>
+                <span class="pill">${p.years_experience ? p.years_experience+'y' : 'YoE —'}</span>
+                <span class="pill">${p.region || '—'}</span>
+              </div>
+            </div>
+          </div>
+          <div class="ci-body">
+            <div class="ci-line">
+              ${(p.skills_raw || '').split(',').slice(0,6).map(s => `<span class="chip small">${s.trim()}</span>`).join('')}
+            </div>
+            <div class="ci-links">
+              ${p.email ? `<span>📧 ${p.email}</span>` : ""}
+              ${p.linkedin ? `<a href="${p.linkedin}" target="_blank" rel="noopener">in</a>` : ""}
+              ${p.github ? `<a href="${p.github}" target="_blank" rel="noopener">gh</a>` : ""}
+              ${p.portfolio ? `<a href="${p.portfolio}" target="_blank" rel="noopener">site</a>` : ""}
+              ${p.resume_link ? `<a href="${p.resume_link}" target="_blank" rel="noopener">cv</a>` : ""}
+            </div>
+          </div>
+        `;
+        grid.appendChild(div);
+      });
+    }
+
+    function paginate(recs, page, pageSize) {
+      const total = recs.length;
+      const pages = Math.max(1, Math.ceil(total / pageSize));
+      const clampedPage = Math.min(Math.max(1, page), pages);
+      const start = (clampedPage - 1) * pageSize;
+      const end = start + pageSize;
+      return { page: clampedPage, pages, total, slice: recs.slice(start, end) };
+    }
+
+    function renderCandidates() {
+      const pagerEl = document.getElementById("pager");
+      const tableWrap = document.getElementById("candidatesTable");
+      const grid = document.getElementById("cardsGrid");
+      const { pageSize } = getFilters();
+
+      const pg = paginate(filteredCache, state.page, pageSize);
+      state.page = pg.page;
+
+      document.getElementById("pageInfo").textContent = `Page ${pg.page} / ${pg.pages}`;
+      pagerEl.classList.toggle("hidden", pg.pages <= 1);
+
+      if (state.view === "table") {
+        grid.classList.add("hidden");
+        tableWrap.classList.remove("hidden");
+        renderTable(pg.slice);
+      } else {
+        tableWrap.classList.add("hidden");
+        grid.classList.remove("hidden");
+        renderCards(pg.slice);
+      }
+
+      // Deep dive options only for current filtered list
+      renderDeepDiveOptions(pg.slice);
+    }
+
+    async function refreshCandidates() {
+      const { minScore, roles } = getFilters();
+
+      // query server with the basic filters it supports
+      const params = new URLSearchParams();
+      params.set("min_score", String(minScore));
+      params.set("roles", roles.join(","));
+      setLoadingCandidates(true);
+      const res = await fetch("/api/candidates?" + params.toString());
+      const data = await res.json();
+      if (!res.ok) {
+        document.getElementById("candidatesTable").textContent = data.error || "Load failed.";
+        return;
+      }
+      candidatesCache = data.candidates || [];
+
+      const f = getFilters();
+      filteredCache = applyAdvancedFilters(candidatesCache, f);
+
+      // Filter summary
+      const fs = {
+        count: filteredCache.length,
+        avg_score: filteredCache.length ? (filteredCache.reduce((a, c) => a + (c.final_score || 0), 0) / filteredCache.length) : 0
+      };
+      document.getElementById("filterSummary").textContent =
+        `In view: ${fs.count || 0} • Avg score: ${fmt(fs.avg_score)}`;
+
+      state.page = 1;
+      state.pageSize = f.pageSize;
+      renderCandidates();
+    }
+
+    function renderDeepDiveOptions(recs) {
+      const sel = document.getElementById("deepSelect");
+      sel.innerHTML = "";
+      recs.forEach(r => {
+        const opt = document.createElement("option");
+        opt.value = r.id;
+        opt.textContent = `${r.name} — ${r.role_guess} — ${fmt(r.final_score)}`;
+        sel.appendChild(opt);
+      });
+    }
+
+    async function autoSelect() {
+      const f = getFilters(); // only basic filters are sent to backend
+      const res = await fetch("/api/auto_select", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ min_score: f.minScore, roles: f.roles, prefer_regions: f.preferRegions })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert(data.error || "Auto-select failed.");
+        return;
+      }
+      const picks = data.picks || [];
+      renderPicks(picks);
+      document.getElementById("exportBtn").disabled = picks.length === 0;
+      toast("Selected top 5 ✅");
+    }
+
+    function renderPicks(picks) {
+      const wrap = document.getElementById("picks");
+      wrap.innerHTML = "";
+      if (!picks.length) {
+        wrap.textContent = "No picks yet. Click Auto-select Top 5.";
+        return;
+      }
+      picks.forEach(p => {
+        const card = document.createElement("div");
+        card.className = "pick";
+        card.innerHTML = `
+          <div class="pick-header">
+            <div>
+              <h3>${p.name}</h3>
+              <div class="sub">${p.role_guess} • Score ${fmt(p.final_score)} • ${p.years_experience ? p.years_experience+'y' : 'YoE —'} • ${p.region || '—'}</div>
+              <div class="links">
+                ${p.email ? `<span>📧 ${p.email}</span>` : ""}
+                ${p.linkedin ? `<a href="${p.linkedin}" target="_blank" rel="noopener">in</a>` : ""}
+                ${p.github ? `<a href="${p.github}" target="_blank" rel="noopener">gh</a>` : ""}
+                ${p.portfolio ? `<a href="${p.portfolio}" target="_blank" rel="noopener">site</a>` : ""}
+                ${p.resume_link ? `<a href="${p.resume_link}" target="_blank" rel="noopener">cv</a>` : ""}
+              </div>
+            </div>
+          </div>
+          <div class="reasons">
+            <strong>Why:</strong>
+            <ul>
+              ${(p.reasons || []).map(r => `<li>${r}</li>`).join("")}
+            </ul>
+          </div>
+        `;
+        wrap.appendChild(card);
+      });
+    }
+
+    async function exportCSV() {
+      window.open("/api/export", "_blank");
+    }
+
+    async function deepLoad() {
+      const sel = document.getElementById("deepSelect");
+      const id = sel.value;
+      if (!id) return;
+      const res = await fetch(`/api/candidate?id=${encodeURIComponent(id)}`);
+      const data = await res.json();
+      const view = document.getElementById("deepView");
+      if (!res.ok) {
+        view.textContent = data.error || "Failed to load candidate.";
+        return;
+      }
+      view.innerHTML = `
+        <div class="deep-card">
+          <div class="row">
+            <div>
+              <h3>${data.name}</h3>
+              <div class="sub">${data.role_guess} • Score ${fmt(data.final_score)} • ${data.years_experience ? data.years_experience+'y' : 'YoE —'} • ${data.region || '—'}</div>
+              <div class="links">
+                ${data.email ? `<span>📧 ${data.email}</span>` : ""}
+                ${data.links.linkedin ? `<a href="${data.links.linkedin}" target="_blank" rel="noopener">LinkedIn</a>` : ""}
+                ${data.links.github ? `<a href="${data.links.github}" target="_blank" rel="noopener">GitHub</a>` : ""}
+                ${data.links.portfolio ? `<a href="${data.links.portfolio}" target="_blank" rel="noopener">Portfolio</a>` : ""}
+                ${data.links.resume ? `<a href="${data.links.resume}" target="_blank" rel="noopener">Resume</a>` : ""}
+              </div>
+            </div>
+          </div>
+          <div class="grid2">
+            <div>
+              <h4>Top reasons</h4>
+              <ul>${(data.reasons || []).map(r => `<li>${r}</li>`).join("")}</ul>
+              <h4>Skills</h4>
+              <pre>${(data.skills_raw || "").slice(0, 2000)}</pre>
+            </div>
+            <div>
+              <h4>Summary / Text</h4>
+              <pre>${(data.merged_text || "").slice(0, 4000)}</pre>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // Drag & drop
+    const dz = document.getElementById("dropzone");
+    dz.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      dz.classList.add("dragover");
+    });
+    dz.addEventListener("dragleave", () => dz.classList.remove("dragover"));
+    dz.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dz.classList.remove("dragover");
+      const f = e.dataTransfer.files && e.dataTransfer.files[0];
+      if (f) uploadFile(f);
+    });
+
+    // Events
+    document.getElementById("uploadBtn").addEventListener("click", () => uploadFile());
+    document.getElementById("refreshBtn").addEventListener("click", refreshCandidates);
+    document.getElementById("autoBtn").addEventListener("click", autoSelect);
+    document.getElementById("exportBtn").addEventListener("click", exportCSV);
+    document.getElementById("deepLoadBtn").addEventListener("click", deepLoad);
+    document.getElementById("scoreRange").addEventListener("input", (e) => {
+      document.getElementById("scoreVal").textContent = parseFloat(e.target.value).toFixed(2);
+    });
+    document.getElementById("clearBtn").addEventListener("click", () => { clearFilters(); refreshCandidates(); });
+    document.getElementById("savePreset").addEventListener("click", savePreset);
+    document.getElementById("loadPreset").addEventListener("click", () => { loadPreset(); refreshCandidates(); });
+    document.getElementById("pageSize").addEventListener("change", () => { state.page = 1; refreshCandidates(); });
+    document.getElementById("prevPage").addEventListener("click", () => { state.page = Math.max(1, state.page - 1); renderCandidates(); });
+    document.getElementById("nextPage").addEventListener("click", () => { state.page = state.page + 1; renderCandidates(); });
+
+    document.getElementById("viewTable").addEventListener("click", () => {
+      state.view = "table";
+      document.getElementById("viewTable").classList.add("active");
+      document.getElementById("viewCards").classList.remove("active");
+      renderCandidates();
+    });
+    document.getElementById("viewCards").addEventListener("click", () => {
+      state.view = "cards";
+      document.getElementById("viewCards").classList.add("active");
+      document.getElementById("viewTable").classList.remove("active");
+      renderCandidates();
+    });
+
+    // Live filter triggers
+    ["searchBox","yoeMin","yoeMax","hasGithub","hasPortfolio","hasResume","pedCompany","pedSchool","sortBy","sortDir"]
+      .forEach(id => document.getElementById(id).addEventListener("change", () => { state.page = 1; refreshCandidates(); }));
+    document.getElementById("scoreRange").addEventListener("change", () => { state.page = 1; refreshCandidates(); });
+    document.getElementById("preferRegion").addEventListener("change", () => {}); // used only for auto-select
+    // Role/region chips click will be captured via refresh button or manual call
+
+    // Init
+    fetchConfig();
+  </script>
+</body>
+</html>
